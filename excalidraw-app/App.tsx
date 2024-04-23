@@ -129,6 +129,37 @@ polyfill();
 
 window.EXCALIDRAW_THROTTLE_RENDER = true;
 
+declare global {
+  interface BeforeInstallPromptEventChoiceResult {
+    outcome: "accepted" | "dismissed";
+  }
+
+  interface BeforeInstallPromptEvent extends Event {
+    prompt(): Promise<void>;
+    userChoice: Promise<BeforeInstallPromptEventChoiceResult>;
+  }
+
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
+
+let pwaEvent: BeforeInstallPromptEvent | null = null;
+
+// Event might need to be subscribed to on page ~load.
+//
+// Also note that it will fire only if certain heuristics are met (user has
+// used the app for some time, etc.)
+window.addEventListener(
+  "beforeinstallprompt",
+  (event: BeforeInstallPromptEvent) => {
+    // prevent Chrome <= 67 from automatically showing the prompt
+    event.preventDefault();
+    // cache for later use
+    pwaEvent = event;
+  },
+);
+
 let isSelfEmbedding = false;
 
 if (window.self !== window.top) {
@@ -932,7 +963,7 @@ const ExcalidrawWrapper = () => {
         )}
 
         <CommandPalette
-          customCommandPaletteItems={[
+          customCommandPaletteItems={() => [
             {
               label: t("labels.liveCollaboration"),
               category: DEFAULT_CATEGORIES.app,
@@ -1103,6 +1134,24 @@ const ExcalidrawWrapper = () => {
                 );
               },
             },
+            ...(pwaEvent
+              ? [
+                  {
+                    label: t("labels.installPWA"),
+                    category: DEFAULT_CATEGORIES.app,
+                    perform: () => {
+                      if (pwaEvent) {
+                        pwaEvent.prompt();
+                        pwaEvent.userChoice.then(() => {
+                          // event cannot be reused, but we'll hopefully
+                          // grab new one as the event should be fired again
+                          pwaEvent = null;
+                        });
+                      }
+                    },
+                  },
+                ]
+              : []),
           ]}
         />
       </Excalidraw>

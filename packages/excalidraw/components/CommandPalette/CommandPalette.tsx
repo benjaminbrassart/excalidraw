@@ -119,7 +119,9 @@ const isCommandPaletteToggleShortcut = (event: KeyboardEvent) => {
 };
 
 type CommandPaletteProps = {
-  customCommandPaletteItems?: CommandPaletteItem[];
+  customCommandPaletteItems?:
+    | CommandPaletteItem[]
+    | (() => CommandPaletteItem[]);
 };
 
 export const CommandPalette = Object.assign(
@@ -535,7 +537,9 @@ function CommandPaletteInner({
       const allCommands = [
         ...commandsFromActions,
         ...additionalCommands,
-        ...(customCommandPaletteItems || []),
+        ...(typeof customCommandPaletteItems === "function"
+          ? customCommandPaletteItems()
+          : customCommandPaletteItems || []),
       ].map((command) => {
         return {
           ...command,
